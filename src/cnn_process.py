@@ -6,6 +6,9 @@
 import sys
 import argparse
 import os
+import io
+
+import pandas as pd
 
 import numpy
 import nibabel
@@ -16,7 +19,6 @@ import lasagne
 import adnet
 
 import utils
-
 
 # File paths
 PATH_MODEL = os.path.abspath(os.path.join(os.sep, 'model'))
@@ -41,14 +43,18 @@ INPUT_STD = 'std'
 
 OUTPUT_HEADER = 'CN, MCI, AD'
 
+def load_expected_values(csv_path):
+    df = pd.read_csv(csv_path)
+    return df
+
 
 def parse_args(argv):
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument('image', type=str,
-                        help='input brain image file path')
-    parser.add_argument('output', type=str,
-                        help='output txt file path')
+    parser.add_argument('input_dir', type=str,
+                        help='input brain directory file path')
+    parser.add_argument('output_dir', type=str,
+                        help='output directory text file path')
 
     args = parser.parse_args(args=argv)
     return args
@@ -130,31 +136,65 @@ def cnn_process(image, model, mean_std, layer=LAYER_NAME):
     # Run
     output = theano_fn([input_data])
 
+    print("run")
+
     return output[0]
 
 
 def main(argv):
+    right, wrong = 0, 0
+
+    #if sys.stdout.encoding != 'utf-8':
+    #    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
     # Parse arguments
     args = parse_args(argv)
     print("Args: %s" % str(args))
 
     # Prepare paths
-    image = utils.parse_path(args.image, utils.REPO)
+    input_dir = utils.parse_path(args.input_dir, utils.REPO)
     model = utils.parse_path(PATH_ADNET, utils.REPO)
     mean_std = utils.parse_path(PATH_MEAN_STD, utils.REPO)
-    out_path = utils.parse_path(args.output, utils.REPO)
+    output_dir = utils.parse_path(args.output_dir, utils.REPO)
 
-    # CNN processing
-    out_data = cnn_process(image,
-                           model,
-                           mean_std,
-                           LAYER_NAME)
+    # Load expected values from CSV
+    expected_values_df = load_expected_values(os.path.abspath('/repo/ADNI1_Screening_10_04_2024.csv'))
 
-    # Output
-    os.makedirs(os.path.dirname(out_path), exist_ok=True)
-    numpy.savetxt(out_path, out_data,
-                  header=OUTPUT_HEADER)
+    for file in os.listdir(input_dir):
+        # CNN processing
+        out_data = cnn_process(os.path.join(input_dir, file),
+                            model,
+                            mean_std,
+                            LAYER_NAME)
+        
 
+        # Output
+        os.makedirs(os.path.dirname(output_dir), exist_ok=True)
+        numpy.savetxt(os.path.join(output_dir, file.replace('nii.gz', 'txt')), out_data,
+                    header=OUTPUT_HEADER)
+
+        # Compare with expected values
+        subject_id = os.path.basename(file).replace('.nii.gz', '')  # Supondo que o nome do arquivo contém o ID do sujeito
+
+        # Filtrar o DataFrame para o sujeito atual
+        subject_data = expected_values_df[expected_values_df['Subject'] == subject_id]
+
+        if not subject_data.empty:
+            expected_value = subject_data['Group'].values[0]  # Pegue o grupo como valor esperado
+            if ((max(out_data[0], out_data[1], out_data[2]) == out_data[0]) and (expected_value == 'CN')):
+                right += 1
+            elif ((max(out_data[0], out_data[1], out_data[2]) == out_data[1]) and (expected_value == 'MCI')):
+                right += 1
+            elif ((max(out_data[0], out_data[1], out_data[2]) == out_data[2]) and (expected_value == 'Alzheimer')):
+                right += 1
+            else:
+                wrong += 1
+            print(f"Comparando {subject_id}: Saída = {out_data}, Esperado = {expected_value}")
+            # Aqui você pode adicionar lógica para verificar se o resultado do modelo está correto
+        else:
+            print(f"Nenhum dado esperado encontrado para {subject_id}.")
+
+    print(f"Certos: {right}\nErrados: {wrong}\nAcurácia{right/wrong}")
     print("Done!")
 
 
