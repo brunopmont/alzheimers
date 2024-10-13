@@ -17,8 +17,9 @@ RUN apt-get update && \
 RUN pip3 install --no-cache-dir numpy==1.19.5 && \
     pip3 install --no-cache-dir pandas
 
-# Install nibabel and lasagne
+# Install nibabel, lasagne, and scikit-learn
 RUN pip3 install --no-cache-dir nibabel && \
+    pip3 install --no-cache-dir scikit-learn && \
     pip3 install --no-cache-dir \
     "https://github.com/Lasagne/Lasagne/archive/5d3c63cb315c50b1cbd27a6bc8664b406f34dd99.zip"
 
