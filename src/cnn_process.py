@@ -9,6 +9,8 @@ import os
 import io
 
 import pandas as pd
+from sklearn.metrics import confusion_matrix
+
 
 import numpy
 import nibabel
@@ -142,10 +144,15 @@ def cnn_process(image, model, mean_std, layer=LAYER_NAME):
 
 
 def main(argv):
-    right, wrong = 0, 0
-
-    #if sys.stdout.encoding != 'utf-8':
+     #if sys.stdout.encoding != 'utf-8':
     #    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
+    right, wrong = 0, 0
+    predicted = ''
+
+    #confusion matrix
+    true_labels = []
+    predicted_labels = []
 
     # Parse arguments
     args = parse_args(argv)
@@ -173,29 +180,56 @@ def main(argv):
         numpy.savetxt(os.path.join(output_dir, file.replace('nii.gz', 'txt')), out_data,
                     header=OUTPUT_HEADER)
 
-        # Compare with expected values
-        subject_id = os.path.basename(file).replace('.nii.gz', '')  # Supondo que o nome do arquivo contém o ID do sujeito
-
-        # Filtrar o DataFrame para o sujeito atual
+        # Busca dados do paciente no csv
+        subject_id = os.path.basename(file).replace('.nii.gz', '')
         subject_data = expected_values_df[expected_values_df['Subject'] == subject_id]
 
         if not subject_data.empty:
-            expected_value = subject_data['Group'].values[0]  # Pegue o grupo como valor esperado
-            if ((max(out_data[0], out_data[1], out_data[2]) == out_data[0]) and (expected_value == 'CN')):
-                right += 1
-            elif ((max(out_data[0], out_data[1], out_data[2]) == out_data[1]) and (expected_value == 'MCI')):
-                right += 1
-            elif ((max(out_data[0], out_data[1], out_data[2]) == out_data[2]) and (expected_value == 'Alzheimer')):
+            expected_value = subject_data['Group'].values[0] #Busca o label
+
+            if (max(out_data[0], out_data[1], out_data[2]) == out_data[0]):
+                predicted = 'CN'
+            elif (max(out_data[0], out_data[1], out_data[2]) == out_data[1]):
+                  predicted = 'MCI'
+            elif max(out_data[0], out_data[1], out_data[2]) == out_data[2]:
+                  predicted = 'AD'
+
+            if predicted == expected_value:
                 right += 1
             else:
                 wrong += 1
-            print(f"Comparando {subject_id}: Saída = {out_data}, Esperado = {expected_value}")
-            # Aqui você pode adicionar lógica para verificar se o resultado do modelo está correto
+
+            true_labels.append(expected_value)
+            predicted_labels.append(predicted)
+
+            #print(f"Comparando {subject_id}: Saída = {out_data}, Esperado = {expected_value}")
         else:
             print(f"Nenhum dado esperado encontrado para {subject_id}.")
 
-    print(f"Certos: {right}\nErrados: {wrong}\nAcurácia{right/wrong}")
-    print("Done!")
+
+    # Contagem dos valores reais para cada classe
+    true_cn = true_labels.count('CN')
+    true_mci = true_labels.count('MCI')
+    true_ad = true_labels.count('Alzheimer')
+
+    # Contagem dos valores preditos para cada classe
+    pred_cn = predicted_labels.count('CN')
+    pred_mci = predicted_labels.count('MCI')
+    pred_ad = predicted_labels.count('Alzheimer')
+
+    #PRINTS
+    print(f"\nRESUMO DOS RESULTADOS:")
+    print(f"RIGHT: {right}\nWRONG: {wrong}\nACCURACY{right/(right+wrong)}")
+    print(f"TRUE: \n   CN: {true_cn}\n   MCI: {true_mci}\n   AD: {true_ad}")
+    print(f"PREDICTED:  \n   CN: {pred_cn}\n   MCI: {pred_mci}\n   AD: {pred_ad}")
+
+    # Gerar a matriz de confusão
+    labels = ['CN', 'MCI', 'Alzheimer']
+    conf_matrix = confusion_matrix(true_labels, predicted_labels, labels=labels)
+
+    # Exibir a matriz de confusão
+    conf_matrix_df = pd.DataFrame(conf_matrix, index=labels, columns=labels)
+    print(f"\nMatriz de Confusão:\n{conf_matrix_df}")
 
 
 if __name__ == "__main__":
