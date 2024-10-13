@@ -19,7 +19,7 @@ from lasagne.init import GlorotUniform
 def build_model(input_var=None):
 
     # Define common parameters
-    input_shape = (None, 1, 145, 182, 155)
+    input_shape = (None, 1, 193, 229, 193)
 
     n_filters = {'l1': 32,
                  'l2': 64,
