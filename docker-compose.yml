@@ -1,4 +1,3 @@
-version: '3.4'
 services:
   adnet-brain:
     build:
@@ -8,6 +7,9 @@ services:
     image: adnet-brain
     volumes:
       - "./:/repo/"
+      - "/mnt/d/ADNI:/mnt/d/ADNI"  # Mapeia o diretório do HD externo
+      - "/mnt/e/ADNI:/mnt/e/ADNI"
+
   adnet-cnn:
     build:
       context: src/
@@ -16,3 +18,5 @@ services:
     image: adnet-cnn
     volumes:
       - "./:/repo/"
+      - "/mnt/d/ADNI:/mnt/d/ADNI"  # Mapeia o diretório do HD externo
+      - "/mnt/e/ADNI:/mnt/e/ADNI"

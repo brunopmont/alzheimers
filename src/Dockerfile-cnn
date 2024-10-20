@@ -7,24 +7,26 @@ RUN apt-get update && \
     apt-get install --yes \
     python3-pip \
     python3-theano \
-    python3-nibabel \
     libopenblas-dev \
     curl \
     unzip && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install lasagne
-# We need a more recent version than apt
-RUN pip3 install --no-cache-dir \
+# Install specific versions of numpy, pandas, scipy and scikit-learn
+RUN pip3 install --no-cache-dir numpy==1.19.5 && \
+    pip3 install --no-cache-dir pandas && \
+    pip3 install --no-cache-dir scipy==1.5.4 && \  
+    pip3 install --no-cache-dir scikit-learn==0.24.2  # Adicionando versão específica do scikit-learn
+# Install nibabel and lasagne
+RUN pip3 install --no-cache-dir nibabel && \
+    pip3 install --no-cache-dir \
     "https://github.com/Lasagne/Lasagne/archive/5d3c63cb315c50b1cbd27a6bc8664b406f34dd99.zip"
 
 # Download ADNet model
-# https://dx.doi.org/10.6084/m9.figshare.11908536
 RUN curl -L -OJ "https://ndownloader.figshare.com/files/24740369" && \
     unzip "model.zip" -d "/" && \
     rm "model.zip"
-
 
 ENTRYPOINT ["python3", "/repo/src/cnn_process.py"]
 CMD ["--help"]
